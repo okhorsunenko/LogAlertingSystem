@@ -1,0 +1,122 @@
+﻿@page "/"
+@using LogAlertingSystem.Application.Interfaces
+@inject IAlertRepository AlertRepository
+@inject ILogRepository LogRepository
+@inject IAlertRuleRepository AlertRuleRepository
+@attribute [Authorize]
+
+<PageTitle>Home - Log Alerting System</PageTitle>
+
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-4">Log Alerting System</h1>
+            <p class="lead">Monitor your Windows Event Logs and receive alerts based on custom rules</p>
+        </div>
+    </div>
+
+    @if (recentAlertCount == null || totalLogs == null)
+    {
+        <p><em>Loading statistics...</em></p>
+    }
+    else
+    {
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Alerts</h5>
+                        <p class="card-text display-6">@recentAlertCount</p>
+                        <a href="/alerts" class="btn btn-light btn-sm">View All</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h5 class="card-title">Active Alert Rules</h5>
+                        <p class="card-text display-6">@activeRuleCount</p>
+                        <a href="/alertrules" class="btn btn-light btn-sm">View Rules</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-info">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Logs</h5>
+                        <p class="card-text display-6">@totalLogs</p>
+                        <a href="/logs" class="btn btn-light btn-sm">View All</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <a href="/alerts" class="btn btn-outline-primary">
+                                <span class="bi bi-exclamation-triangle"></span> View Alerts
+                            </a>
+                            <a href="/alertrules" class="btn btn-outline-success">
+                                <span class="bi bi-gear"></span> Manage Alert Rules
+                            </a>
+                            <a href="/logs" class="btn btn-outline-info">
+                                <span class="bi bi-list"></span> Browse Logs
+                            </a>
+                            <a href="/alertrules/add" class="btn btn-outline-secondary">
+                                <span class="bi bi-plus-circle"></span> Add New Alert Rule
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">System Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-6">Monitoring Status:</dt>
+                            <dd class="col-sm-6">
+                                <span class="badge bg-success">Active</span>
+                            </dd>
+
+                            <dt class="col-sm-6">Log Sources:</dt>
+                            <dd class="col-sm-6">Application, System, Security</dd>
+
+                            <dt class="col-sm-6">Polling Interval:</dt>
+                            <dd class="col-sm-6">Every 60 seconds</dd>
+
+                            <dt class="col-sm-6">Alert Rules:</dt>
+                            <dd class="col-sm-6">
+                                <a href="/alertrules">Manage Rules</a>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private int? recentAlertCount;
+    private int? totalLogs;
+    private int? activeRuleCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var recentAlerts = await AlertRepository.GetAllAsync(0, 1000);
+        recentAlertCount = recentAlerts.Count;
+        totalLogs = await LogRepository.GetCountAsync();
+        var alertRules = await AlertRuleRepository.GetActiveRulesAsync();
+        activeRuleCount = alertRules.Count;
+    }
+}

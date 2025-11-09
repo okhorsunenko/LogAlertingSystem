@@ -1,0 +1,207 @@
+@page "/alerts"
+@using LogAlertingSystem.Application.Interfaces
+@using LogAlertingSystem.Domain.Entities
+@using LogAlertingSystem.Domain.Enums
+@inject IAlertRepository AlertRepository
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Alerts</PageTitle>
+
+<div class="container-fluid">
+    <h1 class="mb-3">Alerts</h1>
+
+    @if (alerts == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Alerts</h5>
+                        <p class="card-text display-6">@alerts.Count</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex align-items-end">
+                    <button class="btn btn-primary" @onclick="LoadAlerts">
+                        <span class="bi bi-arrow-clockwise"></span> Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        @if (!alerts.Any())
+        {
+            <div class="alert alert-info">
+                <p>No alerts found.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Created</th>
+                            <th>Title</th>
+                            <th>Alert Rule</th>
+                            <th>Log Source</th>
+                            <th>Log Level</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var alert in alerts)
+                        {
+                            <tr>
+                                <td>@alert.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                <td>@alert.Title</td>
+                                <td>@alert.AlertRule?.Name</td>
+                                <td>@alert.Log?.Source</td>
+                                <td>
+                                    <span class="badge @GetLogLevelClass(alert.Log?.Level ?? Domain.Enums.EventLogLevel.Information)">
+                                        @alert.Log?.Level
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-info" @onclick="() => ShowDetails(alert)">
+                                        <span class="bi bi-eye"></span> Details
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div>
+                    Showing @alerts.Count alerts
+                </div>
+                <div>
+                    <button class="btn btn-secondary" @onclick="LoadMore" disabled="@loadingMore">
+                        @if (loadingMore)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                        }
+                        Load More
+                    </button>
+                </div>
+            </div>
+        }
+    }
+
+    @if (selectedAlert != null)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Alert Details</h5>
+                        <button type="button" class="btn-close" @onclick="CloseDetails"></button>
+                    </div>
+                    <div class="modal-body">
+                        <dl class="row">
+                            <dt class="col-sm-3">Created At</dt>
+                            <dd class="col-sm-9">@selectedAlert.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</dd>
+
+                            <dt class="col-sm-3">Title</dt>
+                            <dd class="col-sm-9">@selectedAlert.Title</dd>
+
+                            <dt class="col-sm-3">Message</dt>
+                            <dd class="col-sm-9">@selectedAlert.Message</dd>
+
+                            <dt class="col-sm-3">Alert Rule</dt>
+                            <dd class="col-sm-9">@selectedAlert.AlertRule?.Name</dd>
+
+                            <dt class="col-sm-3">Log Source</dt>
+                            <dd class="col-sm-9">@selectedAlert.Log?.Source</dd>
+
+                            <dt class="col-sm-3">Log Level</dt>
+                            <dd class="col-sm-9">@selectedAlert.Log?.Level</dd>
+
+                            <dt class="col-sm-3">Log Timestamp</dt>
+                            <dd class="col-sm-9">@selectedAlert.Log?.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</dd>
+
+                            <dt class="col-sm-3">Log Message</dt>
+                            <dd class="col-sm-9">
+                                <pre class="bg-light p-2 rounded">@selectedAlert.Log?.Message</pre>
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseDetails">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Alert>? alerts;
+    private Alert? selectedAlert;
+    private int skip = 0;
+    private int take = 50;
+    private bool loadingMore = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAlerts();
+    }
+
+    private async Task LoadAlerts()
+    {
+        skip = 0;
+        alerts = await AlertRepository.GetAllAsync(skip, take);
+        StateHasChanged();
+    }
+
+    private async Task LoadMore()
+    {
+        loadingMore = true;
+        StateHasChanged();
+
+        skip += take;
+
+        var moreAlerts = await AlertRepository.GetAllAsync(skip, take);
+
+        if (alerts != null)
+        {
+            alerts.AddRange(moreAlerts);
+        }
+
+        loadingMore = false;
+        StateHasChanged();
+    }
+
+    private void ShowDetails(Alert alert)
+    {
+        selectedAlert = alert;
+    }
+
+    private void CloseDetails()
+    {
+        selectedAlert = null;
+    }
+
+    private string GetLogLevelClass(Domain.Enums.EventLogLevel level)
+    {
+        return level switch
+        {
+            Domain.Enums.EventLogLevel.Information => "bg-info",
+            Domain.Enums.EventLogLevel.Warning => "bg-warning",
+            Domain.Enums.EventLogLevel.Error => "bg-danger",
+            Domain.Enums.EventLogLevel.Critical => "bg-dark",
+            _ => "bg-secondary"
+        };
+    }
+}

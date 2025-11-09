@@ -1,0 +1,212 @@
+@page "/alertrules/details/{Id:int}"
+@using LogAlertingSystem.Application.Interfaces
+@using LogAlertingSystem.Domain.Entities
+@using LogAlertingSystem.Domain.Enums
+@inject IAlertRuleRepository AlertRuleRepository
+@inject NavigationManager Navigation
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Alert Rule Details</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Alert Rule Details</h1>
+        <div>
+            <a href="/alertrules/edit/@Id" class="btn btn-warning me-2">
+                <span class="bi bi-pencil"></span> Edit
+            </a>
+            <a href="/alertrules" class="btn btn-secondary">
+                <span class="bi bi-arrow-left"></span> Back to List
+            </a>
+        </div>
+    </div>
+
+    @if (alertRule == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-3">Name</dt>
+                    <dd class="col-sm-9">@alertRule.Name</dd>
+
+                    <dt class="col-sm-3">Log Level</dt>
+                    <dd class="col-sm-9">
+                        @if (alertRule.LogLevel.HasValue)
+                        {
+                            <span class="badge @GetLogLevelClass(alertRule.LogLevel.Value)">
+                                @alertRule.LogLevel.Value
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Any Level</span>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-3">Status</dt>
+                    <dd class="col-sm-9">
+                        @if (alertRule.IsActive)
+                        {
+                            <span class="badge bg-success">Active</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary">Inactive</span>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-3 mt-3"><h5>Message Conditions</h5></dt>
+                    <dd class="col-sm-9 mt-3"></dd>
+
+                    <dt class="col-sm-3">Contains</dt>
+                    <dd class="col-sm-9">
+                        @if (string.IsNullOrWhiteSpace(alertRule.MessageContainsCondition))
+                        {
+                            <em>Not set</em>
+                        }
+                        else
+                        {
+                            <code>@alertRule.MessageContainsCondition</code>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-3">Equals</dt>
+                    <dd class="col-sm-9">
+                        @if (string.IsNullOrWhiteSpace(alertRule.MessageEqualCondition))
+                        {
+                            <em>Not set</em>
+                        }
+                        else
+                        {
+                            <code>@alertRule.MessageEqualCondition</code>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-3 mt-3"><h5>Source Conditions</h5></dt>
+                    <dd class="col-sm-9 mt-3"></dd>
+
+                    <dt class="col-sm-3">Contains</dt>
+                    <dd class="col-sm-9">
+                        @if (string.IsNullOrWhiteSpace(alertRule.SourceContainsCondition))
+                        {
+                            <em>Not set</em>
+                        }
+                        else
+                        {
+                            <code>@alertRule.SourceContainsCondition</code>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-3">Equals</dt>
+                    <dd class="col-sm-9">
+                        @if (string.IsNullOrWhiteSpace(alertRule.SourceEqualCondition))
+                        {
+                            <em>Not set</em>
+                        }
+                        else
+                        {
+                            <code>@alertRule.SourceEqualCondition</code>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-3 mt-3"><h5>Type Conditions</h5></dt>
+                    <dd class="col-sm-9 mt-3"></dd>
+
+                    <dt class="col-sm-3">Contains</dt>
+                    <dd class="col-sm-9">
+                        @if (string.IsNullOrWhiteSpace(alertRule.TypeContainsCondition))
+                        {
+                            <em>Not set</em>
+                        }
+                        else
+                        {
+                            <code>@alertRule.TypeContainsCondition</code>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-3">Equals</dt>
+                    <dd class="col-sm-9">
+                        @if (string.IsNullOrWhiteSpace(alertRule.TypeEqualCondition))
+                        {
+                            <em>Not set</em>
+                        }
+                        else
+                        {
+                            <code>@alertRule.TypeEqualCondition</code>
+                        }
+                    </dd>
+                </dl>
+
+                <div class="alert alert-info">
+                    <strong>How it works:</strong> This rule will trigger an alert for logs
+                    @if (alertRule.LogLevel.HasValue)
+                    {
+                        <text> with level <strong>@alertRule.LogLevel.Value</strong></text>
+                    }
+                    else
+                    {
+                        <text> of <strong>any level</strong></text>
+                    }
+                    @{
+                        var conditions = new List<string>();
+                        if (!string.IsNullOrWhiteSpace(alertRule.MessageContainsCondition) || !string.IsNullOrWhiteSpace(alertRule.MessageEqualCondition))
+                        {
+                            conditions.Add("matching message conditions");
+                        }
+                        if (!string.IsNullOrWhiteSpace(alertRule.SourceContainsCondition) || !string.IsNullOrWhiteSpace(alertRule.SourceEqualCondition))
+                        {
+                            conditions.Add("matching source conditions");
+                        }
+                        if (!string.IsNullOrWhiteSpace(alertRule.TypeContainsCondition) || !string.IsNullOrWhiteSpace(alertRule.TypeEqualCondition))
+                        {
+                            conditions.Add("matching type conditions");
+                        }
+
+                        if (conditions.Any())
+                        {
+                            <text> and @string.Join(", ", conditions).</text>
+                        }
+                        else
+                        {
+                            <text>.</text>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private AlertRule? alertRule;
+
+    protected override async Task OnInitializedAsync()
+    {
+        alertRule = await AlertRuleRepository.GetByIdAsync(Id);
+
+        if (alertRule == null)
+        {
+            Navigation.NavigateTo("/alertrules");
+        }
+    }
+
+    private string GetLogLevelClass(EventLogLevel level)
+    {
+        return level switch
+        {
+            EventLogLevel.Information => "bg-info",
+            EventLogLevel.Warning => "bg-warning",
+            EventLogLevel.Error => "bg-danger",
+            EventLogLevel.Critical => "bg-dark",
+            _ => "bg-secondary"
+        };
+    }
+}

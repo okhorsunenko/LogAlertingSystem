@@ -1,0 +1,201 @@
+@page "/alertrules"
+@using LogAlertingSystem.Application.Interfaces
+@using LogAlertingSystem.Domain.Entities
+@using LogAlertingSystem.Domain.Enums
+@inject IAlertRuleRepository AlertRuleRepository
+@inject NavigationManager Navigation
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Alert Rules</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Alert Rules</h1>
+        <a href="/alertrules/add" class="btn btn-primary">
+            <span class="bi bi-plus-circle"></span> Add Alert Rule
+        </a>
+    </div>
+
+    @if (alertRules == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else if (!alertRules.Any())
+    {
+        <div class="alert alert-info">
+            <p>No alert rules configured. Click "Add Alert Rule" to create your first rule.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Log Level</th>
+                        <th>Conditions</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var rule in alertRules)
+                    {
+                        <tr>
+                            <td>@rule.Name</td>
+                            <td>
+                                @if (rule.LogLevel.HasValue)
+                                {
+                                    <span class="badge @GetLogLevelClass(rule.LogLevel.Value)">
+                                        @rule.LogLevel.Value
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Any Level</span>
+                                }
+                            </td>
+                            <td>
+                                <small>
+                                    @if (!string.IsNullOrWhiteSpace(rule.MessageContainsCondition) || !string.IsNullOrWhiteSpace(rule.MessageEqualCondition))
+                                    {
+                                        <div><strong>Message:</strong> @GetConditionSummary(rule.MessageContainsCondition, rule.MessageEqualCondition)</div>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(rule.SourceContainsCondition) || !string.IsNullOrWhiteSpace(rule.SourceEqualCondition))
+                                    {
+                                        <div><strong>Source:</strong> @GetConditionSummary(rule.SourceContainsCondition, rule.SourceEqualCondition)</div>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(rule.TypeContainsCondition) || !string.IsNullOrWhiteSpace(rule.TypeEqualCondition))
+                                    {
+                                        <div><strong>Type:</strong> @GetConditionSummary(rule.TypeContainsCondition, rule.TypeEqualCondition)</div>
+                                    }
+                                    @if (string.IsNullOrWhiteSpace(rule.MessageContainsCondition) &&
+                                         string.IsNullOrWhiteSpace(rule.MessageEqualCondition) &&
+                                         string.IsNullOrWhiteSpace(rule.SourceContainsCondition) &&
+                                         string.IsNullOrWhiteSpace(rule.SourceEqualCondition) &&
+                                         string.IsNullOrWhiteSpace(rule.TypeContainsCondition) &&
+                                         string.IsNullOrWhiteSpace(rule.TypeEqualCondition))
+                                    {
+                                        <span class="text-muted">No specific conditions</span>
+                                    }
+                                </small>
+                            </td>
+                            <td>
+                                @if (rule.IsActive)
+                                {
+                                    <span class="badge bg-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Inactive</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="/alertrules/details/@rule.Id" class="btn btn-sm btn-info">
+                                        <span class="bi bi-eye"></span> Details
+                                    </a>
+                                    <a href="/alertrules/edit/@rule.Id" class="btn btn-sm btn-warning">
+                                        <span class="bi bi-pencil"></span> Edit
+                                    </a>
+                                    <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(rule.Id)">
+                                        <span class="bi bi-trash"></span> Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (showDeleteConfirm)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Confirm Delete</h5>
+                        <button type="button" class="btn-close" @onclick="CancelDelete"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to delete this alert rule?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CancelDelete">Cancel</button>
+                        <button type="button" class="btn btn-danger" @onclick="ConfirmDeleteAction">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<AlertRule>? alertRules;
+    private bool showDeleteConfirm = false;
+    private int deleteRuleId = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAlertRules();
+    }
+
+    private async Task LoadAlertRules()
+    {
+        alertRules = await AlertRuleRepository.GetAllAsync();
+    }
+
+    private void ConfirmDelete(int id)
+    {
+        deleteRuleId = id;
+        showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        showDeleteConfirm = false;
+        deleteRuleId = 0;
+    }
+
+    private async Task ConfirmDeleteAction()
+    {
+        if (deleteRuleId > 0)
+        {
+            await AlertRuleRepository.DeleteAsync(deleteRuleId);
+            await AlertRuleRepository.SaveChangesAsync();
+            await LoadAlertRules();
+        }
+        showDeleteConfirm = false;
+        deleteRuleId = 0;
+    }
+
+    private string GetLogLevelClass(EventLogLevel level)
+    {
+        return level switch
+        {
+            EventLogLevel.Information => "bg-info",
+            EventLogLevel.Warning => "bg-warning",
+            EventLogLevel.Error => "bg-danger",
+            EventLogLevel.Critical => "bg-dark",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetConditionSummary(string? contains, string? equals)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(contains))
+        {
+            parts.Add($"Contains '{contains}'");
+        }
+        if (!string.IsNullOrWhiteSpace(equals))
+        {
+            parts.Add($"Equals '{equals}'");
+        }
+        return string.Join(" OR ", parts);
+    }
+}

@@ -1,0 +1,185 @@
+@page "/alertrules/add"
+@using LogAlertingSystem.Application.Interfaces
+@using LogAlertingSystem.Domain.Entities
+@using LogAlertingSystem.Domain.Enums
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject IAlertRuleRepository AlertRuleRepository
+@inject NavigationManager Navigation
+@attribute [Authorize]
+@attribute [StreamRendering]
+@rendermode InteractiveServer
+
+<PageTitle>Add Alert Rule</PageTitle>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Add Alert Rule</h1>
+        <a href="/alertrules" class="btn btn-secondary">
+            <span class="bi bi-arrow-left"></span> Back to List
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <EditForm Model="@model" OnValidSubmit="@HandleValidSubmit" FormName="AddAlertRuleForm">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger" />
+
+                <div class="mb-3">
+                    <label for="name" class="form-label">Rule Name</label>
+                    <InputText id="name" class="form-control" @bind-Value="model.Name" placeholder="e.g., Critical Error Alert" />
+                    <ValidationMessage For="@(() => model.Name)" />
+                </div>
+
+                <div class="mb-3">
+                    <label for="logLevel" class="form-label">Log Level (Optional)</label>
+                    <InputSelect id="logLevel" class="form-select" @bind-Value="model.LogLevel">
+                        <option value="">-- Any Level --</option>
+                        <option value="@EventLogLevel.Information">Information</option>
+                        <option value="@EventLogLevel.Warning">Warning</option>
+                        <option value="@EventLogLevel.Error">Error</option>
+                        <option value="@EventLogLevel.Critical">Critical</option>
+                    </InputSelect>
+                    <div class="form-text">Leave as "Any Level" to match logs of any level.</div>
+                    <ValidationMessage For="@(() => model.LogLevel)" />
+                </div>
+
+                <h5 class="mt-4 mb-3">Message Conditions</h5>
+                <div class="mb-3">
+                    <label for="messageContains" class="form-label">Message Contains (Optional)</label>
+                    <InputText id="messageContains" class="form-control" @bind-Value="model.MessageContainsCondition"
+                               placeholder="Alert will trigger if log message contains this text" />
+                    <div class="form-text">The alert will trigger if the log message contains this text (case-insensitive).</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="messageEqual" class="form-label">Message Equals (Optional)</label>
+                    <InputText id="messageEqual" class="form-control" @bind-Value="model.MessageEqualCondition"
+                               placeholder="Alert will trigger if log message exactly matches this text" />
+                    <div class="form-text">The alert will trigger if the log message exactly matches this text (case-insensitive).</div>
+                </div>
+
+                <h5 class="mt-4 mb-3">Source Conditions</h5>
+                <div class="mb-3">
+                    <label for="sourceContains" class="form-label">Source Contains (Optional)</label>
+                    <InputText id="sourceContains" class="form-control" @bind-Value="model.SourceContainsCondition"
+                               placeholder="Alert will trigger if source contains this text" />
+                    <div class="form-text">The alert will trigger if the source contains this text (case-insensitive).</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="sourceEqual" class="form-label">Source Equals (Optional)</label>
+                    <InputText id="sourceEqual" class="form-control" @bind-Value="model.SourceEqualCondition"
+                               placeholder="Alert will trigger if source exactly matches this text" />
+                    <div class="form-text">The alert will trigger if the source exactly matches this text (case-insensitive).</div>
+                </div>
+
+                <h5 class="mt-4 mb-3">Type Conditions</h5>
+                <div class="mb-3">
+                    <label for="typeContains" class="form-label">Type Contains (Optional)</label>
+                    <InputText id="typeContains" class="form-control" @bind-Value="model.TypeContainsCondition"
+                               placeholder="Alert will trigger if type contains this text" />
+                    <div class="form-text">The alert will trigger if the type contains this text (case-insensitive).</div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="typeEqual" class="form-label">Type Equals (Optional)</label>
+                    <InputText id="typeEqual" class="form-control" @bind-Value="model.TypeEqualCondition"
+                               placeholder="Alert will trigger if type exactly matches this text" />
+                    <div class="form-text">The alert will trigger if the type exactly matches this text (case-insensitive).</div>
+                </div>
+
+                <div class="mb-3 form-check">
+                    <InputCheckbox id="isActive" class="form-check-input" @bind-Value="model.IsActive" />
+                    <label class="form-check-label" for="isActive">
+                        Active
+                    </label>
+                    <div class="form-text">Only active rules will be evaluated against incoming logs.</div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    <div class="alert alert-danger">
+                        @errorMessage
+                    </div>
+                }
+
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="bi bi-save"></span> Save Alert Rule
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private AlertRuleModel model { get; set; } = new() { IsActive = true };
+    private string? errorMessage;
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            var alertRule = new AlertRule
+            {
+                Name = model.Name,
+                LogLevel = model.LogLevel,
+                MessageContainsCondition = model.MessageContainsCondition ?? string.Empty,
+                MessageEqualCondition = model.MessageEqualCondition ?? string.Empty,
+                SourceContainsCondition = model.SourceContainsCondition ?? string.Empty,
+                SourceEqualCondition = model.SourceEqualCondition ?? string.Empty,
+                TypeContainsCondition = model.TypeContainsCondition ?? string.Empty,
+                TypeEqualCondition = model.TypeEqualCondition ?? string.Empty,
+                IsActive = model.IsActive
+            };
+
+            await AlertRuleRepository.AddAsync(alertRule);
+            await AlertRuleRepository.SaveChangesAsync();
+
+            Navigation.NavigateTo("/alertrules", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving alert rule: {ex.Message}";
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/alertrules");
+    }
+
+    public class AlertRuleModel
+    {
+        [Required(ErrorMessage = "Name is required")]
+        [StringLength(200, ErrorMessage = "Name cannot be longer than 200 characters")]
+        public string Name { get; set; } = string.Empty;
+
+        public EventLogLevel? LogLevel { get; set; }
+
+        [StringLength(500)]
+        public string? MessageContainsCondition { get; set; }
+
+        [StringLength(500)]
+        public string? MessageEqualCondition { get; set; }
+
+        [StringLength(500)]
+        public string? SourceContainsCondition { get; set; }
+
+        [StringLength(500)]
+        public string? SourceEqualCondition { get; set; }
+
+        [StringLength(500)]
+        public string? TypeContainsCondition { get; set; }
+
+        [StringLength(500)]
+        public string? TypeEqualCondition { get; set; }
+
+        public bool IsActive { get; set; }
+    }
+}
